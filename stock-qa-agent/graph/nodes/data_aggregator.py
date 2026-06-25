@@ -5,6 +5,7 @@ from langgraph.prebuilt import create_react_agent
 from graph.state import AgentState
 from tools.screener_tool import get_screener_tool
 from config.settings import GROQ_API_KEY, DATA_MODEL
+from langchain_core.messages import HumanMessage
 
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
@@ -20,7 +21,7 @@ DATA_AGGREGATOR_PROMPT = """You are a Financial Data Aggregator Agent.
 Your only responsibility is to retrieve and organize financial information using the screener_search tool.
 You do not provide investment recommendations.
 
-Search screener.in for the company and collect information such as:
+Search screener.in,moneycontrol.com,nseindia.com,bseindia.com,tickertape.in for the company and collect information such as:
 1. Company Profile & Business Description
 2. Current Stock Price & 52-week High/Low
 3. Market Capitalization
@@ -55,19 +56,15 @@ data_agent = create_react_agent(
 
 # ── Node Function ─────────────────────────────────────────────────────────────
 def data_aggregator_node(state: AgentState) -> dict:
-    """
-    Runs the Data Aggregator agent.
-    Searches screener.in for fundamental financial data about the queried stock.
-    """
-    print("  [data_aggregator] fetching fundamental data from screener.in...")
+    print("  [data_aggregator] fetching fundamental data...")
 
-   from langchain_core.messages import HumanMessage
-enhanced_messages = state["messages"] + [
-    HumanMessage(content=(
-        f"Search for: '{state.get('user_query', '')} NSE India financials PE ratio screener.in 2025'"
+    user_query = state.get("user_query", "")   
+    enhanced_messages = state["messages"] + [
+        HumanMessage(content=(
+            f"Search for: '{state.get('user_query', '')} NSE India financials PE ratio screener.in 2025'"
     ))
 ]
-result = data_agent.invoke({"messages": enhanced_messages})
+    result = data_agent.invoke({"messages": enhanced_messages})
     last_message = result["messages"][-1]
 
     agent_message = AIMessage(
