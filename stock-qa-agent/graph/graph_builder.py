@@ -6,6 +6,13 @@ from graph.nodes.supervisor import supervisor_node
 from graph.nodes.data_aggregator import data_aggregator_node
 from graph.nodes.news_sentiment import news_sentiment_node
 from graph.nodes.investment_analyst import investment_analyst_node
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
+from typing import Literal
+from langgraph.graph import StateGraph, START, END
+# rest of your code...
 
 
 # ── Routing: supervisor → workers ─────────────────────────────────────────────
