@@ -1,0 +1,17 @@
+# Core LangGraph & LangChain
+langgraph>=0.2.0
+langchain-core>=0.3.0
+langchain-groq>=0.2.0
+langchain-community>=0.3.0
+
+# Tavily search tool
+tavily-python>=0.5.0
+
+# Streamlit frontend
+streamlit>=1.40.0
+
+# Pydantic for structured outputs
+pydantic>=2.0.0
+
+# Environment variables (local dev only)
+python-dotenv>=1.0.0
