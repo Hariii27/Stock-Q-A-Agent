@@ -9,7 +9,7 @@ except Exception:
     TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
 SUPERVISOR_MODEL  = "qwen/qwen3-32b"
-DATA_MODEL        = "llama-3.1-8b-instant"
+DATA_MODEL        = "llama-3.3-70b-versatile"
 NEWS_MODEL        = "llama-3.3-70b-versatile"
 ANALYST_MODEL     = "llama-3.3-70b-versatile"
 
