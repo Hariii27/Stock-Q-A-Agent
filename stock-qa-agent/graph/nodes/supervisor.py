@@ -71,6 +71,6 @@ def supervisor_node(state: AgentState) -> dict:
         agents_called = agents_called + ["supervisor"]
 
     return {
-        "next": decision.next,
-        "agents_called": agents_called,
-    }
+    "next": decision.validated_next(),
+    "agents_called": agents_called,
+}
