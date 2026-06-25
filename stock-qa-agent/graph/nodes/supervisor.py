@@ -10,9 +10,12 @@ os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 # ── Routing Schema ────────────────────────────────────────────────────────────
 class RouteDecision(BaseModel):
-    """Supervisor's routing decision."""
     next: Literal["data_aggregator", "news_sentiment", "both", "investment_analyst", "FINISH"]
     reasoning: str
+
+    def validated_next(self) -> str:
+        """Fallback to 'both' if supervisor returns FINISH too early."""
+        return self.next if self.next != "FINISH" else "both"
 
 # ── LLM ──────────────────────────────────────────────────────────────────────
 supervisor_llm = ChatGroq(
@@ -22,23 +25,30 @@ supervisor_llm = ChatGroq(
 ).with_structured_output(RouteDecision)
 
 # ── System Prompt ─────────────────────────────────────────────────────────────
-SUPERVISOR_PROMPT = """You are a Portfolio Management Supervisor Agent.
+SUPERVISOR_PROMPT = """SUPERVISOR_SYSTEM_PROMPT = """You are a Portfolio Management Supervisor Agent.
 Your responsibility is to understand the user's stock market question and decide which worker agent(s) should be called.
 
 Available Agents:
-1. data_aggregator  - Fundamental data, financials, ratios, peer comparison, shareholding, historical stock data
-2. news_sentiment   - Recent news, corporate announcements, market sentiment, macro events affecting stocks
-3. investment_analyst - Final analysis (only after workers have run)
+1. data_aggregator  - Fundamental data, financials, ratios, peer comparison, shareholding, historical stock data, price, market cap, dividends
+2. news_sentiment   - Recent news, corporate announcements, market sentiment, macro events, analyst views
+3. investment_analyst - Final analysis (only route here after workers have already run)
 
-Rules:
-1. Analyze the user's intent first.
-2. If the question is about company fundamentals → return 'data_aggregator'
-3. If the question is about recent events or market sentiment → return 'news_sentiment'
-4. If both fundamentals and recent events are required → return 'both'
-5. If both workers have already run → return 'investment_analyst'
-6. If investment_analyst has already responded → return 'FINISH'
-7. Never fabricate financial data or news.
-8. If information is insufficient, route to the appropriate worker.
+Routing Rules:
+- ANY question about a stock, company, or market → NEVER return FINISH directly
+- Questions about numbers, financials, price, ratios, performance → data_aggregator
+- Questions about news, events, sentiment, announcements → news_sentiment
+- Questions needing complete picture → both
+- Simple greetings or completely unrelated topics only → FINISH
+- When in doubt → both
+
+Examples:
+- "Tell me about Infosys" → both
+- "Is TCS a good company?" → both
+- "What happened to Zomato recently?" → news_sentiment
+- "What is the PE ratio of HDFC?" → data_aggregator
+- "Analyse Wipro completely" → both
+- "Hello" → FINISH
+"""
 """
 
 # ── Node Function ─────────────────────────────────────────────────────────────
