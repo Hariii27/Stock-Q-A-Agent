@@ -60,7 +60,7 @@ def news_sentiment_node(state: AgentState) -> dict:
     print("  [news_sentiment] fetching news from moneycontrol.com...")
 
     
-enhanced_messages = state["messages"] + [
+    enhanced_messages = state["messages"] + [
     HumanMessage(content=(
         f"Search for: '{state.get('user_query', '')} India stock news latest 2025 moneycontrol'"
     ))
