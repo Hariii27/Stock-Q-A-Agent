@@ -19,7 +19,7 @@ news_llm = ChatGroq(
 # ── System Prompt ─────────────────────────────────────────────────────────────
 NEWS_SENTIMENT_PROMPT = """You are a News Sentiment Agent.
 Your responsibility is to gather and summarize recent news related to a company, stock, sector, or market event.
-Use the moneycontrol_search tool to collect information from moneycontrol.com.
+Use the moneycontrol_search tool to collect information from moneycontrol.com,economictimes.indiatimes.com,livemint.com,businessstandard.com.
 
 Tasks:
 1. Collect recent news articles (last 30–90 days preferred)
@@ -59,13 +59,13 @@ def news_sentiment_node(state: AgentState) -> dict:
     """
     print("  [news_sentiment] fetching news from moneycontrol.com...")
 
-    
+    user_query = state.get("user_query", "")
     enhanced_messages = state["messages"] + [
-    HumanMessage(content=(
-        f"Search for: '{state.get('user_query', '')} India stock news latest 2025 moneycontrol'"
+        HumanMessage(content=(
+            f"Search for: '{state.get('user_query', '')} India stock news latest 2025 moneycontrol'"
     ))
 ]
-result = news_agent.invoke({"messages": enhanced_messages})
+    result = news_agent.invoke({"messages": enhanced_messages})
     last_message = result["messages"][-1]
 
     agent_message = AIMessage(
