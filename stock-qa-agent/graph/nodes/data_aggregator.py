@@ -61,7 +61,13 @@ def data_aggregator_node(state: AgentState) -> dict:
     """
     print("  [data_aggregator] fetching fundamental data from screener.in...")
 
-    result = data_agent.invoke({"messages": state["messages"]})
+   from langchain_core.messages import HumanMessage
+enhanced_messages = state["messages"] + [
+    HumanMessage(content=(
+        f"Search for: '{state.get('user_query', '')} NSE India financials PE ratio screener.in 2025'"
+    ))
+]
+result = data_agent.invoke({"messages": enhanced_messages})
     last_message = result["messages"][-1]
 
     agent_message = AIMessage(
