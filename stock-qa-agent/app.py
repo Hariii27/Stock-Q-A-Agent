@@ -5,8 +5,7 @@ from graph.graph_builder import graph
 import streamlit as st
 
 # DEBUG - remove after fixing
-st.write("GROQ KEY loaded:", st.secrets.get("GROQ_API_KEY", "NOT FOUND")[:15])
-st.write("TAVILY KEY loaded:", st.secrets.get("TAVILY_API_KEY", "NOT FOUND")[:15])
+
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
