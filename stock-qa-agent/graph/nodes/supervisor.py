@@ -14,7 +14,6 @@ class RouteDecision(BaseModel):
     reasoning: str
 
     def validated_next(self) -> str:
-        """Fallback to 'both' if supervisor returns FINISH too early."""
         return self.next if self.next != "FINISH" else "both"
 
 # ── LLM ──────────────────────────────────────────────────────────────────────
@@ -25,52 +24,46 @@ supervisor_llm = ChatGroq(
 ).with_structured_output(RouteDecision)
 
 # ── System Prompt ─────────────────────────────────────────────────────────────
-SUPERVISOR_PROMPT = """SUPERVISOR_SYSTEM_PROMPT = """You are a Portfolio Management Supervisor Agent.
-Your responsibility is to understand the user's stock market question and decide which worker agent(s) should be called.
-
-Available Agents:
-1. data_aggregator  - Fundamental data, financials, ratios, peer comparison, shareholding, historical stock data, price, market cap, dividends
-2. news_sentiment   - Recent news, corporate announcements, market sentiment, macro events, analyst views
-3. investment_analyst - Final analysis (only route here after workers have already run)
-
-Routing Rules:
-- ANY question about a stock, company, or market → NEVER return FINISH directly
-- Questions about numbers, financials, price, ratios, performance → data_aggregator
-- Questions about news, events, sentiment, announcements → news_sentiment
-- Questions needing complete picture → both
-- Simple greetings or completely unrelated topics only → FINISH
-- When in doubt → both
-
-Examples:
-- "Tell me about Infosys" → both
-- "Is TCS a good company?" → both
-- "What happened to Zomato recently?" → news_sentiment
-- "What is the PE ratio of HDFC?" → data_aggregator
-- "Analyse Wipro completely" → both
-- "Hello" → FINISH
-"""
-"""
+SUPERVISOR_PROMPT = (
+    "You are a Portfolio Management Supervisor Agent. "
+    "Your responsibility is to understand the user's stock market question "
+    "and decide which worker agent(s) should be called.\n\n"
+    "Available Agents:\n"
+    "1. data_aggregator - Fundamental data, financials, ratios, peer comparison, "
+    "shareholding, historical stock data, price, market cap, dividends\n"
+    "2. news_sentiment - Recent news, corporate announcements, market sentiment, "
+    "macro events, analyst views\n"
+    "3. investment_analyst - Final analysis only after workers have already run\n\n"
+    "Routing Rules:\n"
+    "- ANY question about a stock, company, or market → NEVER return FINISH directly\n"
+    "- Questions about numbers, financials, price, ratios, performance → data_aggregator\n"
+    "- Questions about news, events, sentiment, announcements → news_sentiment\n"
+    "- Questions needing complete picture → both\n"
+    "- Simple greetings or completely unrelated topics only → FINISH\n"
+    "- When in doubt → both\n\n"
+    "Examples:\n"
+    "- Tell me about Infosys → both\n"
+    "- Is TCS a good company? → both\n"
+    "- What happened to Zomato recently? → news_sentiment\n"
+    "- What is the PE ratio of HDFC? → data_aggregator\n"
+    "- Analyse Wipro completely → both\n"
+    "- Hello → FINISH"
+)
 
 # ── Node Function ─────────────────────────────────────────────────────────────
 def supervisor_node(state: AgentState) -> dict:
-    """
-    Reads conversation state and decides which agent runs next.
-    Routes to: data_aggregator | news_sentiment | both | investment_analyst | FINISH
-    """
     print("  [supervisor] analyzing user query...")
 
     messages = [SystemMessage(content=SUPERVISOR_PROMPT)] + state["messages"]
-
     decision: RouteDecision = supervisor_llm.invoke(messages)
 
-    print(f"  [supervisor] -> routing to: {decision.next} | reason: {decision.reasoning}")
+    print(f"  [supervisor] routing to: {decision.next} | reason: {decision.reasoning}")
 
-    # Track supervisor in agents_called
     agents_called = state.get("agents_called", [])
     if "supervisor" not in agents_called:
         agents_called = agents_called + ["supervisor"]
 
     return {
-    "next": decision.validated_next(),
-    "agents_called": agents_called,
-}
+        "next": decision.validated_next(),
+        "agents_called": agents_called,
+    }
