@@ -1,7 +1,7 @@
 import streamlit as st
 
-GROQ_API_KEY   = os.environ.get("GROQ_API_KEY")
-TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
+GROQ_API_KEY   = os.st.secrets("GROQ_API_KEY")
+TAVILY_API_KEY = os.st.secrets("TAVILY_API_KEY")
 
 # ── Model Names (all hosted on Groq) ─────────────────────────────────────────
 SUPERVISOR_MODEL  = "qwen/qwen3-32b"               # Portfolio Management Supervisor
