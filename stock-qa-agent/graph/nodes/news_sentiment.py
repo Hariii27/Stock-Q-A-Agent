@@ -5,6 +5,7 @@ from langgraph.prebuilt import create_react_agent
 from graph.state import AgentState
 from tools.moneycontrol_tool import get_moneycontrol_tool
 from config.settings import GROQ_API_KEY, NEWS_MODEL
+from langchain_core.messages import HumanMessage
 
 os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
@@ -58,7 +59,13 @@ def news_sentiment_node(state: AgentState) -> dict:
     """
     print("  [news_sentiment] fetching news from moneycontrol.com...")
 
-    result = news_agent.invoke({"messages": state["messages"]})
+    
+enhanced_messages = state["messages"] + [
+    HumanMessage(content=(
+        f"Search for: '{state.get('user_query', '')} India stock news latest 2025 moneycontrol'"
+    ))
+]
+result = news_agent.invoke({"messages": enhanced_messages})
     last_message = result["messages"][-1]
 
     agent_message = AIMessage(
