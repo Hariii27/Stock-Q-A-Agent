@@ -8,13 +8,16 @@ except Exception:
     GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
     TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
 
-SUPERVISOR_MODEL  = "qwen/qwen3-32b"
-DATA_MODEL        = "llama-3.3-70b-versatile"
+SUPERVISOR_MODEL  = "meta-llama/llana-4-scout-17b-16e-instrcut"
+DATA_MODEL        = "meta-llama/llama-4-scout-17b-16e-instruct"
 NEWS_MODEL        = "llama-3.3-70b-versatile"
-ANALYST_MODEL     = "llama-3.3-70b-versatile"
+ANALYST_MODEL     = "qwen/qwen-32b"
 
 SCREENER_DOMAIN     = "screener.in"
+NSE_DOMAIN          = "nseindia.com"
 MONEYCONTROL_DOMAIN = "moneycontrol.com"
-TAVILY_MAX_RESULTS  = 5
+ET_DOMAIN           = "economictimes.indiatimes.com"
+TAVILY_MAX_RESULTS  = 2
 
 MAX_RETRIES = 2
+MAX_TOKENS  = 500
