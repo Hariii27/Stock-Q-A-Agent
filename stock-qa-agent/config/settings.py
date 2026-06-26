@@ -11,7 +11,7 @@ except Exception:
 SUPERVISOR_MODEL  = "meta-llama/llama-4-scout-17b-16e-instruct"
 DATA_MODEL        = "meta-llama/llama-4-scout-17b-16e-instruct"
 NEWS_MODEL        = "llama-3.3-70b-versatile"
-ANALYST_MODEL     = "qwen/qwen-32b"
+ANALYST_MODEL     = "qwen/qwen3-32b"
 
 SCREENER_DOMAIN     = "screener.in"
 NSE_DOMAIN          = "nseindia.com"
