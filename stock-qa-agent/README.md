@@ -1,13 +1,4 @@
----
-title: Stock QA Agent
-emoji: 📈
-colorFrom: green
-colorTo: blue
-sdk: streamlit
-sdk_version: 1.40.0
-app_file: app.py
-pinned: false
----
+
 
 # 📈 Stock Market Q&A Agent
 
