@@ -1,6 +1,17 @@
+---
+title: Stock QA Agent
+emoji: 📈
+colorFrom: green
+colorTo: blue
+sdk: streamlit
+sdk_version: 1.40.0
+app_file: app.py
+pinned: false
+---
+
 # 📈 Stock Market Q&A Agent
 
-A multi-agent AI system for stock market analysis built with **LangGraph**, **Groq**, **Tavily**, and **Streamlit**.
+A multi-agent AI system for Indian stock market analysis. Ask any question about a stock and get accurate, structured insights powered by real-time data from **screener.in** and **moneycontrol.com**.
 
 ---
 
@@ -9,19 +20,30 @@ A multi-agent AI system for stock market analysis built with **LangGraph**, **Gr
 ```
 User Query
     ↓
-🧠 Supervisor Agent (Qwen 32B)
-    ├── Routes to Data Aggregator, News Sentiment, or both
-    ↓
-📊 Data Aggregator Agent          📰 News Sentiment Agent
-(Llama 3.1 8B + Tavily)          (Llama 3.3 70B + Tavily)
-→ screener.in                     → moneycontrol.com
-    └──────────────┬───────────────┘
-                   ↓
-        🔍 Investment Analyst Agent (Deepseek R1-Distill)
-                   ↓
-        [Data sufficient?]
-        YES → Final Answer → User
-        NO  → Retry (max 2x) → Supervisor
+🧠 Supervisor Agent (llama-4-scout-17b)
+    ├── Fetches quick company overview via Tavily
+    ├── Classifies query as Simple or Complex
+    └── Routes to correct agent(s)
+         │
+         ├── Simple Query (single metric)
+         │       ↓
+         │   📊 Data Aggregator     OR    📰 News Sentiment
+         │   (llama-4-scout-17b)         (llama-3.3-70b)
+         │   screener.in                  moneycontrol.com
+         │       │                              │
+         │       └──── If empty ────────────────┘
+         │             ⚠️ Interrupt → Ask User
+         │             Yes → NSE India / Economic Times
+         │             No  → Continue with available data
+         │
+         └── Complex Query (full analysis)
+                 ↓
+         📊 Data Aggregator → 📰 News Sentiment
+                 ↓
+         🔍 Investment Analyst (qwen3-32b)
+                 ↓
+         Sufficient? YES → Final Answer → User
+                     NO  → Retry (max 1x) → Supervisor
 ```
 
 ---
@@ -30,10 +52,39 @@ User Query
 
 | Agent | Model | Provider | Data Source | Role |
 |-------|-------|----------|-------------|------|
-| 🧠 Supervisor | `qwen-qwq-32b` | Groq | — | Routes queries to appropriate workers |
-| 📊 Data Aggregator | `llama-3.1-8b-instant` | Groq | screener.in | Fetches fundamentals, financials, ratios |
-| 📰 News Sentiment | `llama-3.3-70b-versatile` | Groq | moneycontrol.com | Fetches news, sentiment, announcements |
-| 🔍 Investment Analyst | `deepseek-r1-distill-llama-70b` | Groq | — | Analyzes data, generates insights |
+| 🧠 Supervisor | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq | Tavily (overview) | Routes queries, classifies intent |
+| 📊 Data Aggregator | `meta-llama/llama-4-scout-17b-16e-instruct` | Groq | screener.in → NSE India | Fetches PE ratio, financials, ratios, shareholding |
+| 📰 News Sentiment | `llama-3.3-70b-versatile` | Groq | moneycontrol.com → Economic Times | Fetches news, sentiment, announcements |
+| 🔍 Investment Analyst | `qwen/qwen3-32b` | Groq | — | Analyzes data, generates concise insights |
+
+---
+
+## 🔄 Smart Routing Logic
+
+| Question Type | Agents Triggered |
+|---|---|
+| PE ratio, financials, balance sheet | Supervisor → Data Aggregator → Analyst |
+| News, policy, announcements | Supervisor → News Sentiment → Analyst |
+| Complete analysis | Supervisor → Data Aggregator → News Sentiment → Analyst |
+| Data not found on primary source | ⚠️ Interrupt → User confirms fallback → Resume |
+
+---
+
+## 🔁 Fallback Flow (Human-in-the-Loop)
+
+```
+screener.in returns empty
+    ↓
+⚠️ "No results on Screener.in. Search NSE India instead?"
+    ├── Yes → searches nseindia.com → continues
+    └── No  → proceeds with available data
+
+moneycontrol.com returns empty
+    ↓
+⚠️ "No results on Moneycontrol. Search Economic Times instead?"
+    ├── Yes → searches economictimes.indiatimes.com → continues
+    └── No  → proceeds with available data
+```
 
 ---
 
@@ -42,7 +93,7 @@ User Query
 ```
 stock-qa-agent/
 │
-├── app.py                          # Streamlit frontend
+├── app.py                          # Streamlit frontend with interrupt handling
 ├── requirements.txt
 ├── README.md
 │
@@ -52,121 +103,200 @@ stock-qa-agent/
 │
 ├── graph/
 │   ├── __init__.py
-│   ├── state.py                    # AgentState definition
-│   ├── graph_builder.py            # LangGraph graph assembly
+│   ├── state.py                    # AgentState with all fields
+│   ├── graph_builder.py            # LangGraph graph + MemorySaver checkpointer
 │   └── nodes/
 │       ├── __init__.py
-│       ├── supervisor.py           # Qwen 32B supervisor
-│       ├── data_aggregator.py      # Llama 3.1 8B + screener.in
-│       ├── news_sentiment.py       # Llama 3.3 70B + moneycontrol.com
-│       └── investment_analyst.py   # Deepseek R1-Distill analyzer
+│       ├── supervisor.py           # Routing + company overview
+│       ├── data_aggregator.py      # screener.in + NSE fallback + interrupt
+│       ├── news_sentiment.py       # moneycontrol.com + ET fallback + interrupt
+│       └── investment_analyst.py   # Analysis + simple/complex handling
 │
 ├── tools/
 │   ├── __init__.py
-│   ├── screener_tool.py            # Tavily configured for screener.in
-│   └── moneycontrol_tool.py        # Tavily configured for moneycontrol.com
+│   ├── screener_tool.py            # Tavily → screener.in + nseindia.com
+│   └── moneycontrol_tool.py        # Tavily → moneycontrol.com + ET
 │
 └── .streamlit/
-    └── secrets.toml                # API keys (DO NOT commit to GitHub)
+    └── secrets.toml                # API keys (never commit to GitHub)
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Setup Guide
 
-### 1. Clone the Repository
+### Option 1 — Local Setup
 
+**1. Clone the repo**
 ```bash
 git clone https://github.com/yourusername/stock-qa-agent.git
 cd stock-qa-agent
 ```
 
-### 2. Install Dependencies
-
+**2. Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. Set Up API Keys
-
-Get your API keys:
-- **Groq**: https://console.groq.com/keys (Free tier available)
-- **Tavily**: https://app.tavily.com (Free tier: 1000 searches/month)
-
-Add them to `.streamlit/secrets.toml`:
-
+**3. Add API keys to `.streamlit/secrets.toml`**
 ```toml
 GROQ_API_KEY   = "gsk_your_key_here"
 TAVILY_API_KEY = "tvly_your_key_here"
 ```
 
-### 4. Run the App
-
+**4. Run**
 ```bash
 streamlit run app.py
 ```
 
-Open your browser at `http://localhost:8501`
+---
+
+### Option 2 — Google Colab
+
+**Cell 1 — Install**
+```python
+!pip install langgraph langchain-core langchain-groq langchain-community tavily-python streamlit pydantic pyngrok -q
+```
+
+**Cell 2 — Clone**
+```python
+!git clone https://github.com/yourusername/stock-qa-agent.git /content/stock-qa-agent
+%cd /content/stock-qa-agent
+```
+
+**Cell 3 — Set API Keys**
+```python
+import os
+os.environ["GROQ_API_KEY"]   = "gsk_your_key_here"
+os.environ["TAVILY_API_KEY"] = "tvly_your_key_here"
+```
+
+**Cell 4 — Patch settings.py**
+```python
+settings = """
+import os
+GROQ_API_KEY   = os.environ.get("GROQ_API_KEY", "")
+TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY", "")
+SUPERVISOR_MODEL  = "meta-llama/llama-4-scout-17b-16e-instruct"
+DATA_MODEL        = "meta-llama/llama-4-scout-17b-16e-instruct"
+NEWS_MODEL        = "llama-3.3-70b-versatile"
+ANALYST_MODEL     = "qwen/qwen3-32b"
+SCREENER_DOMAIN     = "screener.in"
+NSE_DOMAIN          = "nseindia.com"
+MONEYCONTROL_DOMAIN = "moneycontrol.com"
+ET_DOMAIN           = "economictimes.indiatimes.com"
+TAVILY_MAX_RESULTS  = 2
+MAX_RETRIES = 1
+MAX_TOKENS  = 500
+"""
+with open("/content/stock-qa-agent/config/settings.py", "w") as f:
+    f.write(settings)
+print("✅ Done")
+```
+
+**Cell 5 — Run**
+```python
+from pyngrok import ngrok
+import subprocess, time
+ngrok.kill()
+proc = subprocess.Popen(
+    ["streamlit", "run", "app.py", "--server.port", "8501", "--server.headless", "true"],
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE
+)
+time.sleep(4)
+print(f"✅ App live at: {ngrok.connect(8501)}")
+```
 
 ---
 
-## ☁️ Streamlit Cloud Deployment
+### Option 3 — Streamlit Cloud
 
-1. Push the project to a **public GitHub repository**
-2. Go to [share.streamlit.io](https://share.streamlit.io)
-3. Connect your GitHub repo
-4. Set **Main file path** to `app.py`
-5. Go to **Settings → Secrets** and add:
-
+1. Push repo to GitHub (ensure `.streamlit/secrets.toml` is in `.gitignore`)
+2. Go to [share.streamlit.io](https://share.streamlit.io) → New App
+3. Set **Main file path**: `stock-qa-agent/app.py`
+4. Go to **Settings → Secrets** and add:
 ```toml
 GROQ_API_KEY   = "gsk_your_key_here"
 TAVILY_API_KEY = "tvly_your_key_here"
 ```
-
-6. Click **Deploy** ✅
-
-> ⚠️ **Important**: Never commit `secrets.toml` to GitHub. Add `.streamlit/secrets.toml` to your `.gitignore`.
+5. Click **Deploy** ✅
 
 ---
 
-## 💬 Example Questions
+### Option 4 — Hugging Face Spaces
 
-- `"What is the PE ratio and revenue growth of Infosys?"`
-- `"What is the recent news and market sentiment for Reliance Industries?"`
-- `"Give me a complete analysis of TCS including fundamentals and recent news."`
-- `"What is the debt situation and promoter holding of Adani Enterprises?"`
-- `"How is HDFC Bank performing compared to its peers?"`
+1. Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+2. Select **Streamlit** as SDK
+3. Go to **Settings → Variables and Secrets** and add:
+```
+GROQ_API_KEY   = gsk_your_key_here
+TAVILY_API_KEY = tvly_your_key_here
+```
+4. Push your code:
+```bash
+git remote add hf https://huggingface.co/spaces/yourusername/stock-qa-agent
+git push hf main
+```
+5. App deploys automatically ✅
 
 ---
 
-## 🔄 Agent Routing Logic
+## 🔑 API Keys Required
 
-| Question Type | Agents Triggered |
+| Key | Get it from | Used by |
+|-----|-------------|---------|
+| `GROQ_API_KEY` | [console.groq.com/keys](https://console.groq.com/keys) | All 4 agents (free tier) |
+| `TAVILY_API_KEY` | [app.tavily.com](https://app.tavily.com) | Data Aggregator + News Sentiment (1000 free searches/month) |
+
+---
+
+## 💬 Sample Questions
+
+| Question Type | Example |
 |---|---|
-| Fundamentals only | Supervisor → Data Aggregator → Analyst |
-| News/Sentiment only | Supervisor → News Sentiment → Analyst |
-| Complete analysis | Supervisor → Data Aggregator → News Sentiment → Analyst |
-| Insufficient data | Analyst → Supervisor → Workers (retry, max 2x) |
-
----
-
-## ⚠️ Disclaimer
-
-This tool is for **educational and informational purposes only**. It does not provide investment advice. Always consult a SEBI-registered financial advisor before making investment decisions.
+| Valuation | `"What is the PE ratio of Infosys?"` |
+| Financials | `"What is the revenue and profit growth of TCS?"` |
+| Debt | `"What is the debt situation of Adani Enterprises?"` |
+| News | `"What is the latest news for Reliance Industries?"` |
+| Policy | `"How does the new SEBI regulation affect HDFC Bank?"` |
+| Full Analysis | `"Give me a complete analysis of Wipro."` |
+| Comparison | `"How is ICICI Bank performing compared to its peers?"` |
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **[LangGraph](https://github.com/langchain-ai/langgraph)** — Multi-agent orchestration
-- **[Groq](https://groq.com)** — Ultra-fast LLM inference
-- **[Tavily](https://tavily.com)** — AI-optimized web search
-- **[Streamlit](https://streamlit.io)** — Frontend UI
-- **screener.in** — Fundamental financial data
-- **moneycontrol.com** — News and market sentiment
+| Tool | Purpose |
+|------|---------|
+| [LangGraph](https://github.com/langchain-ai/langgraph) | Multi-agent orchestration + Human-in-the-Loop |
+| [Groq](https://groq.com) | Ultra-fast LLM inference (free tier) |
+| [Tavily](https://tavily.com) | AI-optimized web search |
+| [Streamlit](https://streamlit.io) | Frontend UI |
+| screener.in | Fundamental financial data |
+| nseindia.com | NSE India fallback data |
+| moneycontrol.com | News and market sentiment |
+| economictimes.com | Economic Times fallback news |
+
+---
+
+## ⚙️ Configuration
+
+All configurable values are in `config/settings.py`:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `TAVILY_MAX_RESULTS` | `2` | Search results per query (keep low to save tokens) |
+| `MAX_RETRIES` | `1` | Max analyst retry attempts |
+| `MAX_TOKENS` | `500` | Max tokens per LLM response |
+
+---
+
+## ⚠️ Disclaimer
+
+This tool is for **educational and informational purposes only**. It does not constitute financial advice. Always consult a SEBI-registered financial advisor before making any investment decisions. The creators are not responsible for any financial decisions made based on this tool's output.
 
 ---
 
 ## 📄 License
 
-MIT License — feel free to use, modify, and distribute.
+MIT License — free to use, modify, and distribute.
